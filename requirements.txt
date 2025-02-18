@@ -2,4 +2,3 @@ streamlit
 tensorflow
 opencv-python
 Pillow
-libgl1-mesa-glx
