@@ -119,6 +119,7 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
 
     # --- Grad-CAM Visualization ---
     st.subheader("Grad-CAM Visualization") # Grad-CAM Subheader
+    from tensorflow.keras.preprocessing import image # Import image here - CORRECTED LINE - IMPORT INSIDE IF BLOCK
     grad_cam_explainer = GradCAM()
 
     grad_cam_heatmap = grad_cam_explainer.explain(
@@ -137,13 +138,14 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
     heatmap_colored = plt.cm.jet(heatmap_resized_clip)[:, :, :3] # Apply a colormap (jet colormap) - ENSURE RGB (3 channels)
 
     # Load and resize original image to grayscale AND to IMG_SIZE for overlay - CORRECTED ORIGINAL IMAGE PROCESSING
-    original_image_resized = image.load_img(sample_image_path, target_size=IMG_SIZE, color_mode='grayscale') # Load original as grayscale AND resize
+    original_image_resized = image.load_img(sample_image_path, target_size=IMG_SIZE, color_mode='grayscale') # Load original as grayscale AND resize # LINE 140 - ERROR POINTING HERE
     original_image_array_gray_resized = np.array(original_image_resized) / 255.0 # Get numpy array and rescale - RESIZED GRAYSCALE IMAGE
 
     # Overlay heatmap on original image using matplotlib - USING RESIZED GRAYSCALE IMAGE
     overlayed_image_gray = cv2.addWeighted(heatmap_resized_uint8, 0.5, original_image_array_gray_resized, 0.5, 0) # OpenCV for weighted addition - USING uint8 HEATMAP and RESIZED GRAYSCALE IMAGE
     
     st.image(overlayed_image_gray, caption=f"Grad-CAM Heatmap for Predicted Class: {predicted_class_category}", use_column_width=True) # Display Grad-CAM heatmap - DISPLAYING GRAYSCALE OVERLAY
+    plt.axis('off') # Hide axes for cleaner visualization
 
     print("Grad-CAM heatmap generated and displayed (simplified grayscale overlay with matplotlib and OpenCV).") # Confirmation message
 
