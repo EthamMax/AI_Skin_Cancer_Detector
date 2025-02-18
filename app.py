@@ -40,9 +40,10 @@ if uploaded_file is not None or camera_image is not None:  # Check if image is u
     st.header("AI Analysis and Prediction")  # Header for prediction section
 
     if uploaded_file is not None:
-        # Correctly open UploadedFile as PIL Image using BytesIO - MORE ROBUST - CORRECTED
+        # Correctly open UploadedFile as PIL Image using BytesIO - MORE ROBUST - FORCE FORMAT - CORRECTED
+        from io import BytesIO  # Import BytesIO
         image_bytes = uploaded_file.getvalue() # Get bytes from UploadedFile
-        image_for_prediction = Image.open(BytesIO(image_bytes)) # Open image from bytes using BytesIO - CORRECTED and MORE ROBUST
+        image_for_prediction = Image.open(BytesIO(image_bytes), formats=['JPEG', 'PNG', 'GIF', 'WEBP', 'BMP']) # Open image from bytes using BytesIO and force format - CORRECTED and FORCE FORMAT
     elif camera_image is not None:
         image_for_prediction = camera_image
 
@@ -89,4 +90,4 @@ if uploaded_file is not None or camera_image is not None:  # Check if image is u
     st.subheader("Grad-CAM Visualization (Coming Soon)")  # Subheader for Grad-CAM section
     st.markdown("Grad-CAM heatmap visualization will be displayed here in the next step.")
 
-print("Streamlit app structure, image input, AI prediction logic + debug print + BytesIO fix set up in app.py") # Confirmation message
+print("Streamlit app structure, image input, AI prediction logic + debug print + BytesIO + format fix set up in app.py") # Confirmation message
