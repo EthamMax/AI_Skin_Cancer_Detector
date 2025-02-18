@@ -85,8 +85,8 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
 
 
     # --- Load Model Weights from Hugging Face Hub ---
-    model_repo_id = "MrityuTron/SkinCancerAI-Model" # CORRECT Hugging Face Repo ID for MODEL REPOSITORY # CORRECT Hugging Face Repo ID - Double Check! - CORRECTED TO YOUR REPO ID
-    filename = "best_model.weights.h5" # Filename of your weights file in the Hugging Face repo
+    model_repo_id = "MrityuTron/SkinCancerAI-Model" # CORRECT Hugging Face Repo ID for MODEL REPOSITORY - YES, THIS IS CORRECT!
+    filename = "best_model.weights.h5" 
 
     weights_file_path = hf_hub_download(repo_id=model_repo_id, filename=filename) # Download weights from Hugging Face Hub
     # --- Model Architecture (Code from Step 3.5 - CORRECTLY PLACED HERE) ---
