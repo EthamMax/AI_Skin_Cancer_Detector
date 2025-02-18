@@ -1,7 +1,5 @@
 streamlit
 tensorflow
-scikit-learn
-grad-cam
 opencv-python
 Pillow
-libgl1-mesa-glx 
+libgl1-mesa-glx
