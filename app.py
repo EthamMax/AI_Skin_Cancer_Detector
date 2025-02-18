@@ -1,9 +1,11 @@
+import os
+os.system("pip install huggingface-hub") # Force install huggingface-hub at app start - ADDED FORCE INSTALL
+
 import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
 import cv2
-import os
 from huggingface_hub import hf_hub_download # Import huggingface_hub
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras import layers, models # Import model building components
