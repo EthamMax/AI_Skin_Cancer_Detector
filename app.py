@@ -1,3 +1,6 @@
+import os
+os.system("pip install huggingface-hub") # Force install huggingface-hub at app start
+os.system("pip install tf-explain") # Force install tf-explain at app start - ADDED FORCE INSTALL
 
 import streamlit as st
 import tensorflow as tf
@@ -13,7 +16,7 @@ import io # Import io for handling image bytes
 
 
 # --- Streamlit App Header and Title ---
-st.title("SkinVision AI: Skin Cancer Detection App") # Main title of the app
+st.title("SkinVision AI: Skin Cancer Detection Web App") # Main title of the app
 st.markdown("Upload a skin lesion image for AI-powered melanoma risk assessment with Grad-CAM visualization.") # Updated subheading
 
 # --- Sidebar for App Information and Instructions ---
@@ -41,6 +44,7 @@ st.markdown(
 )
 
 st.subheader("Choose Image Input Method:") # Subheader for input options
+st.write("OR") # ADDED "OR" text between upload and camera options
 
 col1, col2 = st.columns(2) # Create two columns for layout
 
@@ -54,13 +58,11 @@ with col1:
         print(f"Type of image_for_prediction: {type(image_for_prediction)}") # Debug print
 
 with col2:
-    take_photo_button = st.button("Take Live Photo", key="camera_button") # Button to activate camera
-    if take_photo_button:
-        camera_image = st.camera_input("", key="camera_input") # Camera input - now activated by button
-        if camera_image:
-            image_for_prediction = Image.open(camera_image) # Open camera image as PIL Image
-            st.image(camera_image, caption="Live Photo from Camera.", use_column_width=True) # Display camera image
-            print(f"Type of image_for_prediction: {type(camera_image)}") # Debug print
+    camera_image = st.camera_input("Take Live Photo", key="camera_input") # Camera input - ALWAYS SHOW CAMERA BOX - REMOVED BUTTON
+    if camera_image is not None:
+        image_for_prediction = Image.open(camera_image) # Open camera image as PIL Image
+        st.image(camera_image, caption="Live Photo from Camera.", use_column_width=True) # Display camera image
+        print(f"Type of image_for_prediction: {type(camera_image)}") # Debug print
 
 
 if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only if image is loaded
@@ -130,7 +132,7 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
     # Resize heatmap to match original image size - Grayscale heatmap (2D shape: 224x224) - FINAL RESIZE CORRECTION
     heatmap_resized = tf.image.resize(grad_cam_heatmap[..., tf.newaxis], IMG_SIZE).numpy()[:,:,0] # Resize to 2D grayscale
 
-    heatmap_resized_uint8 = np.uint8(255 * heatmap_resized) # Scale to 0-255
+    heatmap_resized_uint8 = np.uint8(255 * heatmap_resized) # Convert heatmap_resized to uint8 - DATA TYPE CORRECTION!
     heatmap_resized_clip = np.clip(heatmap_resized_uint8, 0, 255) # Clip values to 0-255 if needed
     heatmap_colored = plt.cm.jet(heatmap_resized_clip)[:, :, :3] # Apply a colormap (jet colormap) - ENSURE RGB (3 channels) - THIS IS ACTUALLY RGB, NOT GRAYSCALE!
 
@@ -138,9 +140,11 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
     original_image_resized = image_for_prediction.resize(IMG_SIZE) # Resize PIL Image to IMG_SIZE for overlay - USING image_for_prediction directly! - RESIZE PIL IMAGE
     original_image_array_gray_resized = np.array(original_image_resized.convert('L')) / 255.0 # Convert resized PIL Image to grayscale numpy array, rescale - RESIZED GRAYSCALE IMAGE
 
-    # --- Manual Heatmap Overlay using Matplotlib and OpenCV - CORRECTED OVERLAY CODE - NO REDUNDANT GRAYSCALE CONVERSION - CORRECT DATA TYPES!
-    heatmap_resized_uint8 = np.uint8(heatmap_resized) # Convert heatmap_resized to uint8 - DATA TYPE CORRECTION! - CONVERT HEATMAP TO uint8
-    original_image_array_gray_resized_uint8 = np.uint8(255 * original_image_array_gray_resized) # Force convert original image to uint8 - EXTREME FIX - FORCE uint8 - CONVERT ORIGINAL IMAGE TO uint8
+    # --- EXTREME Shape and Data Type Correction - RIGHT BEFORE OVERLAY - FORCE 2D GRAYSCALE uint8 SHAPES ---
+    heatmap_resized_uint8 = cv2.cvtColor(heatmap_colored, cv2.COLOR_RGB2GRAY) # Force convert heatmap to GRAYSCALE (1 channel) - EXTREME FIX - FORCE GRAYSCALE - DELETE THIS LINE! - REMOVED THIS LINE - NO REDUNDANT GRAYSCALE CONVERSION!
+    heatmap_resized_uint8 = np.uint8(heatmap_resized) # Convert heatmap_resized to uint8 - DATA TYPE CORRECTION! - KEEP uint8 CONVERSION
+
+    original_image_array_gray_resized_uint8 = np.uint8(255 * original_image_array_gray_resized) # Force convert original image to uint8 - EXTREME FIX - FORCE uint8 - KEEP uint8 CONVERSION
 
     # Overlay heatmap on original image using OpenCV - USING RESIZED GRAYSCALE IMAGE - CORRECTED OVERLAY CODE - NO REDUNDANT GRAYSCALE CONVERSION - CORRECT DATA TYPES! - USING uint8 IMAGES
     overlayed_image_gray = cv2.addWeighted(heatmap_resized_uint8, 0.5, original_image_array_gray_resized_uint8, 0.5, 0) # OpenCV for weighted addition - USING uint8 HEATMAP and RESIZED GRAYSCALE IMAGE - CORRECTED OVERLAY - uint8 IMAGES
