@@ -1,5 +1,6 @@
 import os
-os.system("pip install huggingface-hub") # Force install huggingface-hub at app start - ADDED FORCE INSTALL
+os.system("pip install huggingface-hub") # Force install huggingface-hub at app start
+os.system("pip install tf-explain") # Force install tf-explain at app start - ADDED FORCE INSTALL
 
 import streamlit as st
 import tensorflow as tf
@@ -29,7 +30,7 @@ with st.sidebar:
 
 
 # --- Main App Content Area ---
-st.header("Upload or Capture Skin Lesion Image for Analysis") # Updated header
+st.header("Upload Your Skin Lesion Image for Analysis") # More descriptive header
 
 st.subheader("Instructions for Best Image Capture") # Instructions Subheader
 st.markdown(
@@ -46,7 +47,7 @@ st.subheader("Choose Image Input Method:") # Subheader for input options
 
 col1, col2 = st.columns(2) # Create two columns for layout
 
-image_for_prediction = None # Initialize image_for_prediction - moved here
+image_for_prediction = None # Initialize image_for_prediction # Initialize image_for_prediction
 
 with col1:
     uploaded_file = st.file_uploader("Upload from Storage", type=["jpg", "jpeg", "png"], key="file_upload") # File uploader in column 1
@@ -83,10 +84,11 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
     print(f"Type of img_expanded (preprocessed image): {type(img_expanded)}, shape: {img_expanded.shape}") # Debug print
 
 
-    # --- Load Model Weights from Local File Path (in GitHub repo) ---
-    local_weights_file_path = "best_model.weights.h5"  # Path to your model weights file in the repo
-    print(f"Model weights loaded from local file: {local_weights_file_path}") # Confirmation message
+    # --- Load Model Weights from Hugging Face Hub ---
+    model_repo_id = "MrityuTron/AI_Skin_Cancer_Detector" # CORRECT Hugging Face Repo ID - Double Check!
+    filename = "best_model.weights.h5" # Filename of your weights file in the Hugging Face repo
 
+    weights_file_path = hf_hub_download(repo_id=model_repo_id, filename=filename) # Download weights from Hugging Face Hub
     # --- Model Architecture (Code from Step 3.5 - CORRECTLY PLACED HERE) ---
     base_model = MobileNetV2(
         weights='imagenet',      
@@ -101,7 +103,7 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
     model = models.Model(inputs=base_model.input, outputs=output_layer)
     # --- End of Model Architecture Code ---
 
-    model.load_weights(local_weights_file_path) # Load the weights - NOW should load correctly
+    model.load_weights(weights_file_path) # Load the downloaded weights into the model
 
     print("Streamlit app structure, image input, AI prediction logic and Grad-CAM set up in app.py") # Confirmation message
 
@@ -137,4 +139,7 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
 
     st.image(overlayed_image, caption=f"Grad-CAM Heatmap for Predicted Class: {predicted_class_category}", use_column_width=True) # Display Grad-CAM heatmap
 
-    print("Grad-CAM heatmap generated and displayed in Streamlit app.") # Confirmation message
+    print("Grad-CAM heatmap generated and displayed (simplified grayscale overlay with matplotlib and OpenCV).")
+
+else:
+    print("Please upload or capture a skin lesion image to see AI analysis and Grad-CAM visualization.") # Message when no image is uploaded
