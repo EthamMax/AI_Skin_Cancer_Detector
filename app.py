@@ -30,7 +30,7 @@ with st.sidebar:
 
 
 # --- Main App Content Area ---
-st.header("Upload Your Skin Lesion Image for Analysis") # More descriptive header
+st.header("Upload or Capture Skin Lesion Image for Analysis") # Updated header
 
 st.subheader("Instructions for Best Image Capture") # Instructions Subheader
 st.markdown(
