@@ -133,25 +133,21 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
     # Resize heatmap to match original image size - Grayscale heatmap (2D shape: 224x224) - FINAL RESIZE CORRECTION
     heatmap_resized = tf.image.resize(grad_cam_heatmap[..., tf.newaxis], IMG_SIZE).numpy()[:,:,0] # Resize to 2D grayscale
 
-    heatmap_resized_uint8 = np.uint8(255 * heatmap_resized) # Convert heatmap_resized to uint8 - DATA TYPE CORRECTION!
+    heatmap_resized_uint8 = np.uint8(255 * heatmap_resized) # Scale to 0-255
     heatmap_resized_clip = np.clip(heatmap_resized_uint8, 0, 255) # Clip values to 0-255 if needed
-    heatmap_colored = plt.cm.jet(heatmap_resized_clip)[:, :, :3] # Apply a colormap (jet colormap) - ENSURE RGB (3 channels)
+    heatmap_colored = plt.cm.jet(heatmap_resized_clip)[:, :, :3] # Apply a colormap (jet colormap) - ENSURE RGB (3 channels) - THIS IS ACTUALLY RGB, NOT GRAYSCALE!
 
     # Load and resize original image to grayscale AND to IMG_SIZE for overlay - CORRECTED ORIGINAL IMAGE PROCESSING
     original_image_resized = image_for_prediction.resize(IMG_SIZE) # Resize PIL Image to IMG_SIZE for overlay - USING image_for_prediction directly! - RESIZE PIL IMAGE
     original_image_array_gray_resized = np.array(original_image_resized.convert('L')) / 255.0 # Convert resized PIL Image to grayscale numpy array, rescale - RESIZED GRAYSCALE IMAGE
 
-    # --- EXTREME Shape and Data Type Correction - RIGHT BEFORE OVERLAY - FORCE 2D GRAYSCALE uint8 SHAPES ---
-    heatmap_resized_uint8 = cv2.cvtColor(heatmap_colored, cv2.COLOR_RGB2GRAY) # Force convert heatmap to GRAYSCALE (1 channel) - EXTREME FIX - FORCE GRAYSCALE
-    heatmap_resized_uint8 = np.uint8(tf.image.resize(heatmap_resized_uint8[..., np.newaxis], IMG_SIZE).numpy()[:,:,0]) # Resize AGAIN to 224x224 and ensure 2D grayscale, uint8 - EXTREME FIX - FORCE RESIZE & uint8
+    # --- Manual Heatmap Overlay using Matplotlib and OpenCV - CORRECTED OVERLAY CODE - NO REDUNDANT GRAYSCALE CONVERSION - CORRECT DATA TYPES!
+    heatmap_resized_uint8 = np.uint8(heatmap_resized) # Convert heatmap_resized to uint8 - DATA TYPE CORRECTION! - CONVERT HEATMAP TO uint8
+    original_image_array_gray_resized_uint8 = np.uint8(255 * original_image_array_gray_resized) # Force convert original image to uint8 - EXTREME FIX - FORCE uint8 - CONVERT ORIGINAL IMAGE TO uint8
 
-    original_image_array_gray_resized = tf.image.resize(original_image_array_gray_resized[..., np.newaxis], IMG_SIZE).numpy()[:,:,0] # Force resize ORIGINAL IMAGE AGAIN to 224x224 and ensure 2D grayscale - EXTREME FIX - FORCE RESIZE
-    original_image_array_gray_resized_uint8 = np.uint8(255 * original_image_array_gray_resized) # Force convert original image to uint8 - EXTREME FIX - FORCE uint8
+    # Overlay heatmap on original image using OpenCV - USING RESIZED GRAYSCALE IMAGE - CORRECTED OVERLAY CODE - NO REDUNDANT GRAYSCALE CONVERSION - CORRECT DATA TYPES! - USING uint8 IMAGES
+    overlayed_image_gray = cv2.addWeighted(heatmap_resized_uint8, 0.5, original_image_array_gray_resized_uint8, 0.5, 0) # OpenCV for weighted addition - USING uint8 HEATMAP and RESIZED GRAYSCALE IMAGE - CORRECTED OVERLAY - uint8 IMAGES
 
-
-    # Overlay heatmap on original image using OpenCV - USING RESIZED GRAYSCALE IMAGE - EXTREME SHAPE AND DATA TYPE FIXES
-    overlayed_image_gray = cv2.addWeighted(heatmap_resized_uint8, 0.5, original_image_array_gray_resized_uint8, 0.5, 0) # OpenCV for weighted addition - USING uint8 HEATMAP and RESIZED GRAYSCALE IMAGE - EXTREME FIX - uint8 IMAGES
-    
     st.image(overlayed_image_gray, caption=f"Grad-CAM Heatmap (Grayscale) - Predicted: {predicted_class_category}", use_column_width=True) # Display Grad-CAM heatmap - DISPLAYING GRAYSCALE OVERLAY - CORRECT DISPLAY METHOD!
     plt.axis('off') # Hide axes for cleaner visualization
     st.pyplot(plt) # Use st.pyplot to display matplotlib plot in Streamlit - CORRECT DISPLAY METHOD!
