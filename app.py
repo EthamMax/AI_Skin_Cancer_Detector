@@ -25,11 +25,27 @@ with st.sidebar:
 
 
 # --- Main App Content Area ---
-st.header("Upload Your Skin Lesion Image") # Header for the image upload section
+st.header("Upload Your Skin Lesion Image for Analysis") # More descriptive header
 
-# --- Image Upload and Camera Input Options - Processing and Display ---
-uploaded_file = st.file_uploader("Choose a skin lesion image...", type=["jpg", "jpeg", "png"]) # File uploader
-camera_image = st.camera_input("Or take a live photo using your camera") # Camera input
+st.subheader("Instructions for Best Image Capture") # Instructions Subheader
+st.markdown(
+    """
+    To get the most accurate AI analysis, please ensure your skin lesion image is:
+    *   **Clearly focused and well-lit.**
+    *   **Close-up:** Capture the lesion closely, filling most of the image area.
+    *   **Include a ruler or scale (optional):** For size reference (though not mandatory).
+    *   **Clean and unobstructed:** Ensure the lesion is not covered by hair, bandages, or shadows.
+    """
+)
+
+st.subheader("Choose Image Input Method:") # Subheader for input options
+
+col1, col2 = st.columns(2) # Create two columns for layout
+
+with col1:
+    uploaded_file = st.file_uploader("Upload from Storage", type=["jpg", "jpeg", "png"], key="file_upload") # File uploader in column 1
+with col2:
+    camera_image = st.camera_input("Take Live Photo", key="camera_input") # Camera input in column 2
 
 image_for_prediction = None # Initialize image_for_prediction # Initialize image_for_prediction
 
@@ -41,12 +57,20 @@ if uploaded_file is not None:
 elif camera_image is not None:
     image_for_prediction = Image.open(camera_image) # Open camera image as PIL Image
     st.image(camera_image, caption="Live Photo from Camera.", use_column_width=True) # Display camera image
-    print(f"Type of image_for_prediction: {type(image_for_prediction)}") # Debug print
+    print(f"Type of image_for_prediction: {type(camera_image)}") # Debug print
 
 
 if image_for_prediction is not None: # Proceed with prediction only if image is loaded
     IMG_SIZE = (224, 224)  # Define IMG_SIZE here (was missing)
-    label_diagnosis_mapping = {0: 'akiec', 1: 'bcc', 2: 'bkl', 3: 'df', 4: 'mel', 5: 'nv', 6: 'vasc'} # Define label mapping here (was missing)
+    label_diagnosis_mapping = { # Updated label_diagnosis_mapping with full names
+        0: 'Actinic Keratoses (akiec)',
+        1: 'Basal Cell Carcinoma (bcc)',
+        2: 'Benign Keratosis-like Lesions (bkl)',
+        3: 'Dermatofibroma (df)',
+        4: 'Melanoma (mel)',
+        5: 'Melanocytic Nevi (nv)',
+        6: 'Vascular Lesions (vasc)'
+    }
 
     # Preprocess the image for prediction - NOW should work correctly with PIL Image
     img_array = np.array(image_for_prediction.resize(IMG_SIZE)) / 255.0  # Resize and rescale - NOW should work correctly
@@ -83,7 +107,7 @@ if image_for_prediction is not None: # Proceed with prediction only if image is 
     predicted_class_category = label_diagnosis_mapping[predicted_class_index]
 
     st.header("AI Analysis and Prediction")
-    st.write(f"Predicted Diagnosis: **{predicted_class_category}**")
+    st.write(f"Predicted Diagnosis: **{predicted_class_category}**") # Now shows full category name
     st.write(f"Confidence Level: **{predicted_probability:.2f}%**")
 
     st.subheader("Grad-CAM Visualization (Coming Soon)") # Placeholder for Grad-CAM
