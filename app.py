@@ -30,7 +30,7 @@ with st.sidebar:
 
 
 # --- Main App Content Area ---
-st.header("Upload or Capture Skin Lesion Image for Analysis") # Updated header
+st.header("Upload Your Skin Lesion Image for Analysis") # More descriptive header
 
 st.subheader("Instructions for Best Image Capture") # Instructions Subheader
 st.markdown(
@@ -85,7 +85,7 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
 
 
     # --- Load Model Weights from Hugging Face Hub ---
-    model_repo_id = "MrityuTron/AI_Skin_Cancer_Detector" # CORRECT Hugging Face Repo ID - Double Check!
+    model_repo_id = "MrityuTron/AI_Skin_Cancer_Detector" # CORRECT Hugging Face Repo ID - Double Check! - CORRECTED TO YOUR REPO ID
     filename = "best_model.weights.h5" # Filename of your weights file in the Hugging Face repo
 
     weights_file_path = hf_hub_download(repo_id=model_repo_id, filename=filename) # Download weights from Hugging Face Hub
