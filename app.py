@@ -40,12 +40,11 @@ if uploaded_file is not None or camera_image is not None:  # Check if image is u
 
     if uploaded_file is not None:
         # Correctly open UploadedFile as PIL Image - CORRECTED
-        image_for_prediction = Image.open(uploaded_file)
+        image_for_prediction = Image.open(uploaded_file) # Open UploadedFile as PIL Image - CORRECTED
     elif camera_image is not None:
-        image_for_prediction = camera_image
+        image_for_prediction = camera_image # camera_image is already a PIL Image, no change needed
 
-    IMG_SIZE = (224, 224)  # Define IMG_SIZE here (was missing)
-    label_diagnosis_mapping = {0: 'akiec', 1: 'bcc', 2: 'bkl', 3: 'df', 4: 'mel', 5: 'nv', 6: 'vasc'} # ADD label_diagnosis_mapping here
+    print(f"Type of image_for_prediction: {type(image_for_prediction)}") # DEBUG PRINT - CHECK OBJECT TYPE - ADDED LINE
 
     # Preprocess the image for prediction
     img_array = np.array(image_for_prediction.resize(IMG_SIZE)) / 255.0  # Resize and rescale - NOW should work correctly
@@ -55,6 +54,8 @@ if uploaded_file is not None or camera_image is not None:  # Check if image is u
     local_weights_file_path = "best_model.weights.h5"  # Path to your model weights file (in the same directory as app.py in GitHub repo)
 
     # --- Model Architecture (Code from Step 3.5 - CORRECTLY PLACED HERE) ---
+    IMG_SIZE = (224, 224)  # Define IMG_SIZE here (was missing)
+    label_diagnosis_mapping = {0: 'akiec', 1: 'bcc', 2: 'bkl', 3: 'df', 4: 'mel', 5: 'nv', 6: 'vasc'} # ADD label_diagnosis_mapping here
     base_model = MobileNetV2(
         weights='imagenet',
         include_top=False,
@@ -85,4 +86,4 @@ if uploaded_file is not None or camera_image is not None:  # Check if image is u
     st.subheader("Grad-CAM Visualization (Coming Soon)")  # Subheader for Grad-CAM section
     st.markdown("Grad-CAM heatmap visualization will be displayed here in the next step.")
 
-print("Streamlit app structure, image input, AI prediction logic set up in app.py") # Confirmation message
+print("Streamlit app structure, image input, AI prediction logic + debug print set up in app.py") # Confirmation message
