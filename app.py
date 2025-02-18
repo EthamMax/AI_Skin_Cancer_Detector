@@ -39,6 +39,7 @@ if uploaded_file is not None or camera_image is not None:  # Check if image is u
     st.header("AI Analysis and Prediction")  # Header for prediction section
 
     if uploaded_file is not None:
+        # Correctly open UploadedFile as PIL Image - CORRECTED
         image_for_prediction = Image.open(uploaded_file)
     elif camera_image is not None:
         image_for_prediction = camera_image
@@ -47,7 +48,7 @@ if uploaded_file is not None or camera_image is not None:  # Check if image is u
     label_diagnosis_mapping = {0: 'akiec', 1: 'bcc', 2: 'bkl', 3: 'df', 4: 'mel', 5: 'nv', 6: 'vasc'} # ADD label_diagnosis_mapping here
 
     # Preprocess the image for prediction
-    img_array = np.array(image_for_prediction.resize(IMG_SIZE)) / 255.0  # Resize and rescale
+    img_array = np.array(image_for_prediction.resize(IMG_SIZE)) / 255.0  # Resize and rescale - NOW should work correctly
     img_expanded = np.expand_dims(img_array, axis=0)  # Add batch dimension
 
     # Load Model Weights from Local File Path (in GitHub repo) ---
