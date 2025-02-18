@@ -30,7 +30,7 @@ with st.sidebar:
 
 
 # --- Main App Content Area ---
-st.header("Upload Your Skin Lesion Image for Analysis") # More descriptive header
+st.header("Upload or Capture Skin Lesion Image for Analysis") # Updated header
 
 st.subheader("Instructions for Best Image Capture") # Instructions Subheader
 st.markdown(
@@ -85,8 +85,8 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
 
 
     # --- Load Model Weights from Hugging Face Hub ---
-    model_repo_id = "MrityuTron/SkinCancerAI-Model" # CORRECT Hugging Face Repo ID for MODEL REPOSITORY - YES, THIS IS CORRECT!
-    filename = "best_model.weights.h5" 
+    model_repo_id = "MrityuTron/SkinCancerAI-Model" # CORRECT Hugging Face Repo ID - Double Check! - CORRECTED TO YOUR REPO ID
+    filename = "best_model.weights.h5" # Filename of your weights file in the Hugging Face repo
 
     weights_file_path = hf_hub_download(repo_id=model_repo_id, filename=filename) # Download weights from Hugging Face Hub
     # --- Model Architecture (Code from Step 3.5 - CORRECTLY PLACED HERE) ---
@@ -128,18 +128,24 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
         layer_name='out_relu'
     )
 
-    heatmap_resized = tf.image.resize(grad_cam_heatmap[..., tf.newaxis], IMG_SIZE).numpy()[:,:,0]
-    heatmap_resized_uint8 = np.uint8(255 * heatmap_resized)
-    heatmap_resized_clip = np.clip(heatmap_resized_uint8, 0, 255)
-    heatmap_colored = plt.cm.jet(heatmap_resized_clip)[:, :, :3]
+    # --- Manual Heatmap Overlay using Matplotlib and OpenCV ---
+    # Resize heatmap to match original image size - Grayscale heatmap (2D shape: 224x224) - FINAL RESIZE CORRECTION
+    heatmap_resized = tf.image.resize(grad_cam_heatmap[..., tf.newaxis], IMG_SIZE).numpy()[:,:,0] # Resize to 2D grayscale
 
-    original_image_array_gray = np.array(image_for_prediction.convert('L')) / 255.0 # Convert original to grayscale
+    heatmap_resized_uint8 = np.uint8(255 * heatmap_resized) # Convert heatmap_resized to uint8 - DATA TYPE CORRECTION!
+    heatmap_resized_clip = np.clip(heatmap_resized_uint8, 0, 255) # Clip values to 0-255 if needed
+    heatmap_colored = plt.cm.jet(heatmap_resized_clip)[:, :, :3] # Apply a colormap (jet colormap) - ENSURE RGB (3 channels)
 
-    overlayed_image = heatmap_colored * 0.5 + original_image_array_gray[..., np.newaxis] * 0.5 # Blend heatmap and grayscale image
+    # Load and resize original image to grayscale AND to IMG_SIZE for overlay - CORRECTED ORIGINAL IMAGE PROCESSING
+    original_image_resized = image.load_img(sample_image_path, target_size=IMG_SIZE, color_mode='grayscale') # Load original as grayscale AND resize
+    original_image_array_gray_resized = np.array(original_image_resized) / 255.0 # Get numpy array and rescale - RESIZED GRAYSCALE IMAGE
 
-    st.image(overlayed_image, caption=f"Grad-CAM Heatmap for Predicted Class: {predicted_class_category}", use_column_width=True) # Display Grad-CAM heatmap
+    # Overlay heatmap on original image using matplotlib - USING RESIZED GRAYSCALE IMAGE
+    overlayed_image_gray = cv2.addWeighted(heatmap_resized_uint8, 0.5, original_image_array_gray_resized, 0.5, 0) # OpenCV for weighted addition - USING uint8 HEATMAP and RESIZED GRAYSCALE IMAGE
+    
+    st.image(overlayed_image_gray, caption=f"Grad-CAM Heatmap for Predicted Class: {predicted_class_category}", use_column_width=True) # Display Grad-CAM heatmap - DISPLAYING GRAYSCALE OVERLAY
 
-    print("Grad-CAM heatmap generated and displayed (simplified grayscale overlay with matplotlib and OpenCV).")
+    print("Grad-CAM heatmap generated and displayed (simplified grayscale overlay with matplotlib and OpenCV).") # Confirmation message
 
 else:
     print("Please upload or capture a skin lesion image to see AI analysis and Grad-CAM visualization.") # Message when no image is uploaded
