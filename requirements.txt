@@ -4,4 +4,5 @@ scikit-learn
 opencv-python
 Pillow
 huggingface-hub
-tf-explain 
+tf-explain
+matplotlib  # ADDED matplotlib to requirements.txt
