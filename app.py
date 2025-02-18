@@ -1,6 +1,3 @@
-import os
-os.system("pip install huggingface-hub") # Force install huggingface-hub at app start
-os.system("pip install tf-explain") # Force install tf-explain at app start - ADDED FORCE INSTALL
 
 import streamlit as st
 import tensorflow as tf
