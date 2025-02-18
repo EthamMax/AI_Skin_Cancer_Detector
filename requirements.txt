@@ -1,5 +1,7 @@
 streamlit
 tensorflow
+scikit-learn
 opencv-python
 Pillow
-tf-explain
+huggingface-hub
+tf-explain 
