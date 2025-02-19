@@ -1,6 +1,7 @@
 import os
 os.system("pip install huggingface-hub") # Force install huggingface-hub at app start
-os.system("pip install tf-explain") # Force install tf-explain at app start - ADDED FORCE INSTALL
+os.system("pip install tf-explain") # Force install tf-explain at app start
+os.system("pip install opencv-python") # Force install opencv-python at app start - ADDED FORCE INSTALL for OpenCV
 
 import streamlit as st
 import tensorflow as tf
@@ -16,7 +17,7 @@ import io # Import io for handling image bytes
 
 
 # --- Streamlit App Header and Title ---
-st.title("SkinVision AI: Skin Cancer Detection App") # Main title of the app
+st.title("SkinVision AI: Skin Cancer Detection Web App") # Main title of the app
 st.markdown("Upload a skin lesion image for AI-powered melanoma risk assessment with Grad-CAM visualization.") # Updated subheading
 
 # --- Sidebar for App Information and Instructions ---
@@ -61,7 +62,7 @@ with col2:
     take_photo_button = st.button("Take Live Photo", key="camera_button") # Button to activate camera
     if take_photo_button:
         camera_image = st.camera_input("", key="camera_input") # Camera input - now activated by button
-        if camera_image:
+        if camera_image is not None:
             image_for_prediction = Image.open(camera_image) # Open camera image as PIL Image
             st.image(camera_image, caption="Live Photo from Camera.", use_column_width=True) # Display camera image
             print(f"Type of image_for_prediction: {type(camera_image)}") # Debug print
@@ -82,7 +83,7 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
     # Preprocess the image for prediction - NOW should work correctly with PIL Image
     img_array = np.array(image_for_prediction.resize(IMG_SIZE)) / 255.0  # Resize and rescale - NOW should work correctly
     img_expanded = np.expand_dims(img_array, axis=0)  # Add batch dimension
-    print(f"Type of img_expanded (preprocessed image): {type(img_expanded)}, shape: {img_expanded.shape}") # Debug print
+    print(f"Type of img_expanded (preprocessed image): {type(image_for_prediction)}, shape: {img_expanded.shape}") # Debug print
 
 
     # --- Load Model Weights from Hugging Face Hub ---
@@ -130,33 +131,39 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
         layer_name='out_relu'
     )
 
-    # --- Manual Heatmap Overlay using Matplotlib and OpenCV - DEBUGGING SHAPES AND DATA TYPES - ADDED DEBUG PRINTS
+    # --- Manual Heatmap Overlay using Matplotlib and OpenCV - DEBUGGING SHAPES AND DATA TYPES - ADDED DEBUG PRINTS - ULTIMATE FIXES
     # Resize heatmap to match original image size - Grayscale heatmap (2D shape: 224x224) - FINAL RESIZE CORRECTION
     heatmap_resized = tf.image.resize(grad_cam_heatmap[..., tf.newaxis], IMG_SIZE).numpy()[:,:,0] # Resize to 2D grayscale
 
-    heatmap_resized_uint8 = np.uint8(255 * heatmap_resized) # Scale to 0-255
+    heatmap_resized_uint8 = np.uint8(255 * heatmap_resized) # Convert heatmap_resized to uint8 - DATA TYPE CORRECTION!
     heatmap_resized_clip = np.clip(heatmap_resized_uint8, 0, 255) # Clip values to 0-255 if needed
     heatmap_colored = plt.cm.jet(heatmap_resized_clip)[:, :, :3] # Apply a colormap (jet colormap) - ENSURE RGB (3 channels)
 
-    # Load and resize original image to grayscale AND to IMG_SIZE - CORRECTED ORIGINAL IMAGE PROCESSING
-    original_image_resized = image_for_prediction.resize(IMG_SIZE) # Resize PIL Image to IMG_SIZE 
-    original_image_array_gray_resized = np.array(original_image_resized.convert('L')) / 255.0 # Convert resized PIL Image to grayscale numpy array, rescale
+    # Load and resize original image to grayscale AND to IMG_SIZE for overlay - CORRECTED ORIGINAL IMAGE PROCESSING
+    original_image_resized = image_for_prediction.resize(IMG_SIZE) # Resize PIL Image to IMG_SIZE for overlay - USING image_for_prediction directly! - RESIZE PIL IMAGE
+    original_image_array_gray_resized = np.array(original_image_resized.convert('L')) / 255.0 # Convert resized PIL Image to grayscale numpy array, rescale - RESIZED GRAYSCALE IMAGE
 
-    # --- DEBUG PRINTS - CHECK SHAPES AND DATA TYPES RIGHT BEFORE cv2.addWeighted - KEEP THESE FOR VERIFICATION
-    print("\n--- DEBUG INFO BEFORE cv2.addWeighted ---")
-    print(f"Shape of heatmap_resized_uint8: {heatmap_resized_uint8.shape}, dtype: {heatmap_resized_uint8.dtype}") # ADDED DEBUG PRINT
-    print(f"Shape of original_image_array_gray_resized: {original_image_array_gray_resized.shape}, dtype: {original_image_array_gray_resized.dtype}") # ADDED DEBUG PRINT
-    print(f"Shape of heatmap_colored: {heatmap_colored.shape}, dtype: {heatmap_colored.dtype}") # ADDED DEBUG PRINT
-    print(f"Shape of original_image_array_gray_resized[..., np.newaxis]: {original_image_array_gray_resized[..., np.newaxis].shape}, dtype: {original_image_array_gray_resized.dtype}") # ADDED DEBUG PRINT
+    # --- EXTREME Shape and Data Type Correction - RIGHT BEFORE OVERLAY - FORCE 2D GRAYSCALE uint8 SHAPES - ULTIMATE FIX - FORCE SHAPES AND DATA TYPES AGAIN! ---
+    heatmap_resized_uint8 = np.uint8(heatmap_resized) # Convert heatmap_resized to uint8 - DATA TYPE CORRECTION! - CONVERT HEATMAP TO uint8 - NO REDUNDANT GRAYSCALE CONVERSION! - COMMENTED OUT REDUNDANT CONVERSION IN PREVIOUS STEP
+    original_image_array_gray_resized_uint8 = np.uint8(255 * original_image_array_gray_resized) # Force convert original image to uint8 - EXTREME FIX - FORCE uint8 - CONVERT ORIGINAL IMAGE TO uint8 - LINE 145 - ERROR POINTING HERE # LINE 145 - ERROR POINTING HERE - KEEP uint8 CONVERSION
 
-    # Simple addition overlay in grayscale using OpenCV - USING RESIZED GRAYSCALE IMAGE - CORRECTED OVERLAY CODE - NO REDUNDANT GRAYSCALE CONVERSION - CORRECT DATA TYPES! - USING uint8 IMAGES
-    overlayed_image_gray = cv2.addWeighted(heatmap_resized_uint8, 0.5, original_image_array_gray_resized, 0.5, 0) # OpenCV for weighted addition - USING uint8 HEATMAP and RESIZED GRAYSCALE IMAGE - CORRECTED OVERLAY - uint8 IMAGES
+    # DEBUG PRINTS - CHECK SHAPES AND DATA TYPES RIGHT BEFORE cv2.addWeighted - KEEP THESE FOR VERIFICATION - ULTIMATE DEBUGGING
+    print("\n--- DEBUG INFO BEFORE cv2.addWeighted - ULTIMATE DEBUGGING ---") # Updated debug message
+    print(f"Shape of heatmap_resized_uint8: {heatmap_resized_uint8.shape}, dtype: {heatmap_resized_uint8.dtype}") # ADDED LINE - DEBUG SHAPE
+    print(f"Shape of original_image_array_gray_resized_uint8: {original_image_array_gray_resized_uint8.shape}, dtype: {original_image_array_gray_resized_uint8.dtype}") # ADDED LINE - DEBUG SHAPE - NOW CHECKING uint8 VERSION
+    print(f"Shape of heatmap_colored: {heatmap_colored.shape}, dtype: {heatmap_colored.dtype}") # Check heatmap_colored shape too
+    print(f"Shape of original_image_array_gray_resized[..., np.newaxis]: {original_image_array_gray_resized[..., np.newaxis].shape}, dtype: {original_image_array_gray_resized.dtype}") # Shape after adding channel dim
+
+    # Simple addition overlay in grayscale using OpenCV - USING RESIZED GRAYSCALE IMAGE - CORRECTED OVERLAY CODE - NO REDUNDANT GRAYSCALE CONVERSION - CORRECT DATA TYPES! - USING uint8 IMAGES - ULTIMATE FIX - USING uint8 IMAGES for cv2.addWeighted!
+    overlayed_image_gray = cv2.addWeighted(heatmap_resized_uint8, 0.5, original_image_array_gray_resized_uint8, 0.5, 0) # OpenCV for weighted addition - USING uint8 HEATMAP and RESIZED GRAYSCALE IMAGE - CORRECTED OVERLAY - uint8 IMAGES - USING uint8 IMAGES - ULTIMATE FIX - USING uint8 IMAGES for cv2.addWeighted!
 
     st.image(overlayed_image_gray, caption=f"Grad-CAM Heatmap (Grayscale) - Predicted: {predicted_class_category}", use_column_width=True) # Display Grad-CAM heatmap - DISPLAYING GRAYSCALE OVERLAY - CORRECT DISPLAY METHOD!
     plt.axis('off') # Hide axes for cleaner visualization
     st.pyplot(plt) # Use st.pyplot to display matplotlib plot in Streamlit - CORRECT DISPLAY METHOD!
 
-    print("Grad-CAM heatmap generated and displayed (simplified grayscale overlay with matplotlib and OpenCV).") # Confirmation message
+    print("Grad-CAM heatmap generated and displayed (simplified grayscale overlay with matplotlib and OpenCV).") # Confirmation message - UPDATED MESSAGE to ULTIMATE DEBUGGING VERSION
 
 else:
     print("Please upload or capture a skin lesion image to see AI analysis and Grad-CAM visualization.") # Message when no image is uploaded
+
+print("Minimal Streamlit app structure, image input, AI prediction logic and Grad-CAM (ULTIMATE DEBUGGING VERSION) set up in app.py") # Confirmation message - UPDATED MESSAGE to ULTIMATE DEBUGGING VERSION
