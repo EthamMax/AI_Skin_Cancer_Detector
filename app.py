@@ -1,76 +1,96 @@
 import os
-os.system("pip install huggingface-hub") # Force install huggingface-hub at app start
-os.system("pip install tf-explain") # Force install tf-explain at app start
-os.system("pip install opencv-python") # Force install opencv-python at app start - ADDED FORCE INSTALL for OpenCV
+os.system("pip install huggingface-hub tf-explain opencv-python")  # Install required packages
 
 import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
 import cv2
-from huggingface_hub import hf_hub_download # Import huggingface_hub
+from huggingface_hub import hf_hub_download
 from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras import layers, models # Import model building components
-from tf_explain.core.grad_cam import GradCAM # Import Grad-CAM explainer - ADDED
-import matplotlib.pyplot as plt # Import matplotlib for Grad-CAM overlay - ADDED
-import io # Import io for handling image bytes
+from tensorflow.keras import layers, models
+from tf_explain.core.grad_cam import GradCAM
+import matplotlib.pyplot as plt
 
+# --- Page Configuration ---
+st.set_page_config(page_title="SkinVision AI", layout="wide")
 
-# --- Streamlit App Header and Title ---
-st.title("SkinVision AI: Skin Cancer Detection Web App") # Main title of the app
-st.markdown("Upload a skin lesion image for AI-powered melanoma risk assessment with Grad-CAM visualization.") # Updated subheading
-
-# --- Sidebar for App Information and Instructions ---
+# --- Sidebar: About & Disclaimer ---
 with st.sidebar:
     st.title("About SkinVision AI")
-    st.markdown("This web app uses a deep learning model to analyze skin lesion images and predict the likelihood of melanoma (a type of skin cancer).")
-    st.markdown("It provides **Grad-CAM visualization** to explain the AI's decision, highlighting the areas of concern.") # Updated description to mention Grad-CAM
-    st.markdown("Please note: This is a proof-of-concept tool for educational purposes and **not a substitute for professional medical advice.**")
-    st.markdown("For any skin concerns, always consult a qualified dermatologist.")
-    st.markdown("Built by: Mrityunjay Kumar") # Add your name here!
+    st.markdown(
+        """
+        This web app uses a deep learning model to analyze skin lesion images and assess melanoma risk.
+        It also provides **Grad-CAM visualization** to highlight the regions influencing the AI’s decision.
+        
+        **Disclaimer:** This tool is for educational purposes only and is not a substitute for professional medical advice.
+        """
+    )
+    st.markdown("**Built by:** Mrityunjay Kumar")
 
-
-# --- Main App Content Area ---
-st.header("Upload or Capture Skin Lesion Image for Analysis") # Updated header
-
-st.subheader("Instructions for Best Image Capture") # Instructions Subheader
+# --- App Title and Instructions ---
+st.title("SkinVision AI: Skin Cancer Detection")
 st.markdown(
     """
-    To get the most accurate AI analysis, please ensure your skin lesion image is:
-    *   **Clearly focused and well-lit.**
-    *   **Close-up:** Capture the lesion closely, filling most of the image area.
-    *   **Include a ruler or scale (optional):** For size reference (though not mandatory).
-    *   **Clean and unobstructed:** Ensure the lesion is not covered by hair, bandages, or shadows.
+    Upload a skin lesion image or capture a live photo to receive an AI-powered risk assessment along with a Grad-CAM overlay.
+    """
+)
+st.subheader("Instructions for Best Results:")
+st.markdown(
+    """
+    - **Ensure clarity:** The image should be clear, well-lit, and in focus.
+    - **Close-up:** Capture the lesion as closely as possible with minimal background.
+    - **Clean view:** Ensure the lesion is unobstructed by hair, bandages, or shadows.
     """
 )
 
-st.subheader("Choose Image Input Method:") # Subheader for input options
-st.write("OR") # ADDED "OR" text between upload and camera options
+# --- Session State for Camera Activation ---
+if 'show_camera' not in st.session_state:
+    st.session_state.show_camera = False
 
-col1, col2 = st.columns(2) # Create two columns for layout
+# --- Layout: Two Columns for Input Methods ---
+col1, col2 = st.columns(2)
+image_for_prediction = None
 
-image_for_prediction = None # Initialize image_for_prediction # Initialize image_for_prediction
-
+# Column 1: File Upload
 with col1:
-    uploaded_file = st.file_uploader("Upload from Storage", type=["jpg", "jpeg", "png"], key="file_upload") # File uploader in column 1
+    st.header("Upload an Image")
+    uploaded_file = st.file_uploader("Select an image file", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
-        image_for_prediction = Image.open(uploaded_file) # Open uploaded file as PIL Image
-        st.image(image_for_prediction, caption="Uploaded Image.", use_column_width=True) # Display PIL Image
-        print(f"Type of image_for_prediction: {type(image_for_prediction)}") # Debug print
+        image_for_prediction = Image.open(uploaded_file)
+        st.image(image_for_prediction, caption="Uploaded Image", use_container_width=True)
 
+# Column 2: Camera Input with Toggle
 with col2:
-    take_photo_button = st.button("Take Live Photo", key="camera_button") # Button to activate camera
-    if take_photo_button:
-        camera_image = st.camera_input("", key="camera_input") # Camera input - now activated by button
+    st.header("Capture a Live Photo")
+    if not st.session_state.show_camera:
+        if st.button("Activate Camera"):
+            st.session_state.show_camera = True
+
+    if st.session_state.show_camera:
+        camera_image = st.camera_input("Take a live photo")
         if camera_image is not None:
-            image_for_prediction = Image.open(camera_image) # Open camera image as PIL Image
-            st.image(camera_image, caption="Live Photo from Camera.", use_column_width=True) # Display camera image
-            print(f"Type of image_for_prediction: {type(camera_image)}") # Debug print
+            image_for_prediction = Image.open(camera_image)
+            st.image(image_for_prediction, caption="Captured Live Photo", use_container_width=True)
+            # Hide the camera widget after capture
+            st.session_state.show_camera = False
 
+# --- Process the Image if Available ---
+if image_for_prediction is not None:
+    # Standardized image size for model input and visualization
+    IMG_SIZE = (224, 224)
 
-if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only if image is loaded
-    IMG_SIZE = (224, 224)  # Define IMG_SIZE here (was missing)
-    label_diagnosis_mapping = { # Updated label_diagnosis_mapping with full names
+    # Ensure image is in RGB mode
+    if image_for_prediction.mode != "RGB":
+        image_for_prediction = image_for_prediction.convert("RGB")
+    
+    # Preprocess image: resize and scale pixel values
+    processed_image = image_for_prediction.resize(IMG_SIZE)
+    img_array = np.array(processed_image) / 255.0
+    img_expanded = np.expand_dims(img_array, axis=0)
+    
+    # Label mapping for diagnosis
+    label_diagnosis_mapping = {
         0: 'Actinic Keratoses (akiec)',
         1: 'Basal Cell Carcinoma (bcc)',
         2: 'Benign Keratosis-like Lesions (bkl)',
@@ -79,91 +99,62 @@ if image_for_prediction is not None: # Proceed with prediction and Grad-CAM only
         5: 'Melanocytic Nevi (nv)',
         6: 'Vascular Lesions (vasc)'
     }
-
-    # Preprocess the image for prediction - NOW should work correctly with PIL Image
-    img_array = np.array(image_for_prediction.resize(IMG_SIZE)) / 255.0  # Resize and rescale - NOW should work correctly
-    img_expanded = np.expand_dims(img_array, axis=0)  # Add batch dimension
-    print(f"Type of img_expanded (preprocessed image): {type(image_for_prediction)}, shape: {img_expanded.shape}") # Debug print
-
-
+    
     # --- Load Model Weights from Hugging Face Hub ---
-    model_repo_id = "MrityuTron/SkinCancerAI-Model" # CORRECT Hugging Face Repo ID - Double Check! - CORRECTED TO YOUR REPO ID
-    filename = "best_model.weights.h5" # Filename of your weights file in the Hugging Face repo
-
-    weights_file_path = hf_hub_download(repo_id=model_repo_id, filename=filename) # Download weights from Hugging Face Hub
-    # --- Model Architecture (Code from Step 3.5 - CORRECTLY PLACED HERE) ---
-    base_model = MobileNetV2(
-        weights='imagenet',      
-        include_top=False,       
-        input_shape=IMG_SIZE + (3,) 
-    )
-    base_model.trainable = False 
-    global_average_pooling = layers.GlobalAveragePooling2D()(base_model.output) 
-    dropout_layer = layers.Dropout(0.5)(global_average_pooling) 
-    dense_layer_1 = layers.Dense(128, activation='relu')(dropout_layer) 
-    output_layer = layers.Dense(7, activation='softmax')(dense_layer_1) 
+    model_repo_id = "MrityuTron/SkinCancerAI-Model"
+    filename = "best_model.weights.h5"
+    weights_file_path = hf_hub_download(repo_id=model_repo_id, filename=filename)
+    
+    # --- Build the Model Architecture ---
+    base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=IMG_SIZE + (3,))
+    base_model.trainable = False
+    x = layers.GlobalAveragePooling2D()(base_model.output)
+    x = layers.Dropout(0.5)(x)
+    x = layers.Dense(128, activation='relu')(x)
+    output_layer = layers.Dense(7, activation='softmax')(x)
     model = models.Model(inputs=base_model.input, outputs=output_layer)
-    # --- End of Model Architecture Code ---
-
-    model.load_weights(weights_file_path) # Load the downloaded weights into the model
-
-    print("Streamlit app structure, image input, AI prediction logic and Grad-CAM set up in app.py") # Confirmation message
-
-    # Make prediction
+    
+    # Load the pre-trained weights
+    model.load_weights(weights_file_path)
+    
+    # --- Make Prediction ---
     prediction = model.predict(img_expanded)
-    predicted_class_index = np.argmax(prediction[0])  # Get index of max probability
+    predicted_class_index = np.argmax(prediction[0])
     predicted_probability = prediction[0][predicted_class_index] * 100
     predicted_class_category = label_diagnosis_mapping[predicted_class_index]
-
-    st.header("AI Analysis and Prediction")
-    st.write(f"Predicted Diagnosis: **{predicted_class_category}**") # Now shows full category name
-    st.write(f"Confidence Level: **{predicted_probability:.2f}%**")
-
-    # --- Grad-CAM Visualization - DEBUGGING SHAPES AND DATA TYPES ---
-    st.subheader("Grad-CAM Visualization (DEBUGGING)") # Grad-CAM Subheader - UPDATED SUBHEADER FOR DEBUGGING
-    from tensorflow.keras.preprocessing import image # Ensure image is imported here
+    
+    st.subheader("AI Analysis and Prediction")
+    st.write(f"**Predicted Diagnosis:** {predicted_class_category}")
+    st.write(f"**Confidence Level:** {predicted_probability:.2f}%")
+    
+    # --- Grad-CAM Visualization ---
+    st.subheader("Grad-CAM Visualization")
     grad_cam_explainer = GradCAM()
-
+    
+    # Use an existing layer name; here we use 'out_relu' which exists in the model.
     grad_cam_heatmap = grad_cam_explainer.explain(
         validation_data=(img_expanded, None),
         model=model,
         class_index=predicted_class_index,
         layer_name='out_relu'
     )
-
-    # --- Manual Heatmap Overlay using Matplotlib and OpenCV - DEBUGGING SHAPES AND DATA TYPES - ADDED DEBUG PRINTS - ULTIMATE FIXES
-    # Resize heatmap to match original image size - Grayscale heatmap (2D shape: 224x224) - FINAL RESIZE CORRECTION
-    heatmap_resized = tf.image.resize(grad_cam_heatmap[..., tf.newaxis], IMG_SIZE).numpy()[:,:,0] # Resize to 2D grayscale
-
-    heatmap_resized_uint8 = np.uint8(255 * heatmap_resized) # Convert heatmap_resized to uint8 - DATA TYPE CORRECTION!
-    heatmap_resized_clip = np.clip(heatmap_resized_uint8, 0, 255) # Clip values to 0-255 if needed
-    heatmap_colored = plt.cm.jet(heatmap_resized_clip)[:, :, :3] # Apply a colormap (jet colormap) - ENSURE RGB (3 channels)
-
-    # Load and resize original image to grayscale AND to IMG_SIZE for overlay - CORRECTED ORIGINAL IMAGE PROCESSING
-    original_image_resized = image_for_prediction.resize(IMG_SIZE) # Resize PIL Image to IMG_SIZE for overlay - USING image_for_prediction directly! - RESIZE PIL IMAGE
-    original_image_array_gray_resized = np.array(original_image_resized.convert('L')) / 255.0 # Convert resized PIL Image to grayscale numpy array, rescale - RESIZED GRAYSCALE IMAGE
-
-    # --- EXTREME Shape and Data Type Correction - RIGHT BEFORE OVERLAY - FORCE 2D GRAYSCALE uint8 SHAPES - ULTIMATE FIX - FORCE SHAPES AND DATA TYPES AGAIN! ---
-    heatmap_resized_uint8 = np.uint8(heatmap_resized) # Convert heatmap_resized to uint8 - DATA TYPE CORRECTION! - CONVERT HEATMAP TO uint8 - NO REDUNDANT GRAYSCALE CONVERSION! - COMMENTED OUT REDUNDANT CONVERSION IN PREVIOUS STEP
-    original_image_array_gray_resized_uint8 = np.uint8(255 * original_image_array_gray_resized) # Force convert original image to uint8 - EXTREME FIX - FORCE uint8 - CONVERT ORIGINAL IMAGE TO uint8 - LINE 145 - ERROR POINTING HERE # LINE 145 - ERROR POINTING HERE - KEEP uint8 CONVERSION
-
-    # DEBUG PRINTS - CHECK SHAPES AND DATA TYPES RIGHT BEFORE cv2.addWeighted - KEEP THESE FOR VERIFICATION - ULTIMATE DEBUGGING
-    print("\n--- DEBUG INFO BEFORE cv2.addWeighted - ULTIMATE DEBUGGING ---") # Updated debug message
-    print(f"Shape of heatmap_resized_uint8: {heatmap_resized_uint8.shape}, dtype: {heatmap_resized_uint8.dtype}") # ADDED LINE - DEBUG SHAPE
-    print(f"Shape of original_image_array_gray_resized_uint8: {original_image_array_gray_resized_uint8.shape}, dtype: {original_image_array_gray_resized_uint8.dtype}") # ADDED LINE - DEBUG SHAPE - NOW CHECKING uint8 VERSION
-    print(f"Shape of heatmap_colored: {heatmap_colored.shape}, dtype: {heatmap_colored.dtype}") # Check heatmap_colored shape too
-    print(f"Shape of original_image_array_gray_resized[..., np.newaxis]: {original_image_array_gray_resized[..., np.newaxis].shape}, dtype: {original_image_array_gray_resized.dtype}") # Shape after adding channel dim
-
-    # Simple addition overlay in grayscale using OpenCV - USING RESIZED GRAYSCALE IMAGE - CORRECTED OVERLAY CODE - NO REDUNDANT GRAYSCALE CONVERSION - CORRECT DATA TYPES! - USING uint8 IMAGES - ULTIMATE FIX - USING uint8 IMAGES for cv2.addWeighted!
-    overlayed_image_gray = cv2.addWeighted(heatmap_resized_uint8, 0.5, original_image_array_gray_resized_uint8, 0.5, 0) # OpenCV for weighted addition - USING uint8 HEATMAP and RESIZED GRAYSCALE IMAGE - CORRECTED OVERLAY - uint8 IMAGES - USING uint8 IMAGES - ULTIMATE FIX - USING uint8 IMAGES for cv2.addWeighted!
-
-    st.image(overlayed_image_gray, caption=f"Grad-CAM Heatmap (Grayscale) - Predicted: {predicted_class_category}", use_column_width=True) # Display Grad-CAM heatmap - DISPLAYING GRAYSCALE OVERLAY - CORRECT DISPLAY METHOD!
-    plt.axis('off') # Hide axes for cleaner visualization
-    st.pyplot(plt) # Use st.pyplot to display matplotlib plot in Streamlit - CORRECT DISPLAY METHOD!
-
-    print("Grad-CAM heatmap generated and displayed (simplified grayscale overlay with matplotlib and OpenCV).") # Confirmation message - UPDATED MESSAGE to ULTIMATE DEBUGGING VERSION
+    
+    # Resize the Grad-CAM heatmap to the input image size
+    heatmap_resized = tf.image.resize(grad_cam_heatmap[..., tf.newaxis], IMG_SIZE).numpy()[:, :, 0]
+    heatmap_resized = np.uint8(255 * heatmap_resized)
+    
+    # Apply a colormap for a colored heatmap (convert BGR to RGB for display)
+    heatmap_colored = cv2.applyColorMap(heatmap_resized, cv2.COLORMAP_JET)
+    heatmap_colored = cv2.cvtColor(heatmap_colored, cv2.COLOR_BGR2RGB)
+    
+    # Prepare the original (resized) image for overlay
+    original_image_resized = np.array(processed_image)
+    
+    # Blend the original image with the heatmap
+    overlayed_image = cv2.addWeighted(original_image_resized, 0.6, heatmap_colored, 0.4, 0)
+    
+    # Display the Grad-CAM overlay
+    st.image(overlayed_image, caption=f"Grad-CAM Overlay (Prediction: {predicted_class_category})", use_container_width=False)
 
 else:
-    print("Please upload or capture a skin lesion image to see AI analysis and Grad-CAM visualization.") # Message when no image is uploaded
-
-print("Minimal Streamlit app structure, image input, AI prediction logic and Grad-CAM (ULTIMATE DEBUGGING VERSION) set up in app.py") # Confirmation message - UPDATED MESSAGE to ULTIMATE DEBUGGING VERSION
+    st.info("Please upload or capture an image to perform analysis.")
